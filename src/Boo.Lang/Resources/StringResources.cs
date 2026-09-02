@@ -186,6 +186,9 @@ namespace Boo.Lang.Resources
         public const string BCE0181 = "Unsafe method calls returning a pointer are not valid in an async method";
 		public const string BCE0182 = "Type {0} does not contain a valid GetAwaiter method";
 		public const string BCE0183 = "Expression '{0}' does not support slicing.";
+		public const string BCE0184 = "Argument '{0}' is given more than once.";
+		public const string BCE0185 = "'{0}' has no parameter named '{1}'.";
+		public const string BCE0186 = "'{0}' has no parameter named '{1}'. Did you mean '{2}'?";
 		public const string BCE0190 = "Cannot box byref-like type '{0}': it has no conversion to '{1}'.";
 		public const string BCE0191 = "Byref-like type '{0}' cannot be a field of '{1}'.";
 		public const string BCE0192 = "Byref-like type '{0}' cannot be captured by a closure, a generator or an async method.";
