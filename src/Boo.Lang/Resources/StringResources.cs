@@ -191,6 +191,7 @@ namespace Boo.Lang.Resources
 		public const string BCE0186 = "'{0}' has no parameter named '{1}'. Did you mean '{2}'?";
 		public const string BCE0187 = "Parameter '{0}' has no default, so it cannot follow one that has.";
 		public const string BCE0188 = "The default for '{0}' must be a constant.";
+		public const string BCE0189 = "'{0}' is passed by reference, so it cannot declare a default.";
 		public const string BCE0190 = "Cannot box byref-like type '{0}': it has no conversion to '{1}'.";
 		public const string BCE0191 = "Byref-like type '{0}' cannot be a field of '{1}'.";
 		public const string BCE0192 = "Byref-like type '{0}' cannot be captured by a closure, a generator or an async method.";
