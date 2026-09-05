@@ -145,9 +145,5 @@ class RefStructsErrorsTestFixture(AbstractCompilerErrorsTestFixture):
 	def @typetest_span():
 		RunCompilerTestCase("typetest-span.boo")
 
-	[Test]
-	def @using_byreflike():
-		RunCompilerTestCase("using-byreflike.boo")
-
 	override protected def GetRelativeTestCasesPath() as string:
 		return "byreflike/errors"

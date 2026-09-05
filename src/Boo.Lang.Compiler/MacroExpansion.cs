@@ -1,5 +1,5 @@
-﻿#region license
-// Copyright (c) 2004, Rodrigo B. de Oliveira (rbo@acm.org)
+#region license
+// Copyright (c) 2026 the Boo contributors
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification,
@@ -27,33 +27,35 @@
 #endregion
 
 using Boo.Lang.Compiler.Ast;
-using Boo.Lang.Compiler.TypeSystem;
-using Boo.Lang.Environments;
 
 namespace Boo.Lang.Compiler;
 
-public abstract class AbstractAstMacro : AbstractCompilerComponent, IAstMacro
+/// <summary>
+/// The answers a macro can give besides code.
+/// </summary>
+public static class MacroExpansion
 {
-	protected AbstractAstMacro()
-	{
-	}
+	/// <summary>
+	/// Returned by a macro that cannot answer yet, most often because it needs
+	/// to know a type and the macros run before anything has one. The statement
+	/// is left where it stands and the macro is asked again later, once the
+	/// method bodies are processed. A macro still deferring by then is an error,
+	/// since nothing further is coming.
+	/// </summary>
+	public static readonly Statement Deferred = new DeferredStatement();
 
-	protected AbstractAstMacro(CompilerContext context) : base(context)
-	{
-	}
-
-	public abstract Statement Expand(MacroStatement macro);
-
-	private static MacroExpansionServices Services => My<MacroExpansionServices>.Instance;
+	public static bool IsDeferred(Statement expansion) => ReferenceEquals(expansion, Deferred);
 
 	/// <summary>
-	/// Whether the code this macro was handed carries its types yet. A macro
-	/// that needs them returns MacroExpansion.Deferred until this is true.
+	/// The answer is which node this is, so cloning hands back the same one.
+	/// An ordinary copy would read as a plain empty block, and the macro that
+	/// asked to wait would disappear instead.
 	/// </summary>
-	protected static bool CanResolveTypes => Services.CanResolveTypes;
-
-	/// <summary>
-	/// The type of an expression the macro was handed, once CanResolveTypes.
-	/// </summary>
-	protected static IType TypeOf(Expression expression) => Services.TypeOf(expression);
+	private sealed class DeferredStatement : Block
+	{
+		override public object Clone()
+		{
+			return this;
+		}
+	}
 }

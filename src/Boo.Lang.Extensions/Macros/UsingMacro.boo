@@ -31,21 +31,75 @@ namespace Boo.Lang.Extensions
 import System
 import Boo.Lang.Compiler
 import Boo.Lang.Compiler.Ast
+import Boo.Lang.Compiler.TypeSystem
+import Boo.Lang.Environments
 
 macro using:
-	expansion = using.Body
+"""
+Disposes each value when the block is left.
+
+How a value is disposed depends on its type, so this defers until the types are
+known rather than expanding with the other macros. A struct is disposed where it
+stands, and a byreflike one such as Span has no other way to be disposed at all,
+since it can never be converted to IDisposable.
+"""
+	return MacroExpansion.Deferred unless CanResolveTypes
+
+	# Asked in the order written, since a later value is allowed to name an
+	# earlier one and only sees it once that assignment has been looked at.
+	types = []
+	for expression as Expression in using.Arguments:
+		types.Add(TypeOf(expression))
+
+	expansion as Statement = using.Body
+	index = len(types)
 	for expression as Expression in reversed(using.Arguments):
+		index -= 1
 		temp = ReferenceExpression(Context.GetUniqueName("using", "disposable"))
-		assignment = [| $temp = $expression as System.IDisposable |].withLexicalInfoFrom(expression)
-		
+		disposal as Statement
+
+		if IsDisposedInPlace(types[index]):
+			# A copy would be disposed instead of the value the caller can still
+			# see, so a value the caller named is disposed by that name.
+			named = NamedValue(expression)
+			if named is null:
+				assignment = [| $temp = $expression |].withLexicalInfoFrom(expression)
+				disposal = ExpressionStatement([| $temp.Dispose() |])
+			else:
+				assignment = expression
+				disposal = ExpressionStatement([| $named.Dispose() |])
+		else:
+			assignment = [| $temp = $expression as System.IDisposable |].withLexicalInfoFrom(expression)
+			disposal = [|
+				if $temp is not null:
+					$temp.Dispose()
+					$temp = null
+			|]
+
 		expansion = [|
 			$assignment
 			try:
 				$expansion
 			ensure:
-				if $temp is not null:
-					$temp.Dispose()
-					$temp = null
+				$disposal
 		|]
-		
+
 	return expansion
+
+/// A struct is disposed where it stands. Reaching it through IDisposable would
+/// box it, which loses the write for an ordinary struct and is refused outright
+/// for a byreflike one.
+internal def IsDisposedInPlace(type as IType) as bool:
+	return false if type is null or not type.IsValueType
+	return My[of TypeSystemServices].Instance.IDisposableType.IsAssignableFrom(type)
+
+/// The name a using argument binds its value to, when it binds one to a plain
+/// name. A member or an index gets a temporary instead, since naming it again
+/// in the disposal would walk to it a second time.
+internal def NamedValue(expression as Expression) as ReferenceExpression:
+	assignment = expression as BinaryExpression
+	return null if assignment is null or assignment.Operator != BinaryOperatorType.Assign
+
+	target = assignment.Left
+	return null if target.NodeType != NodeType.ReferenceExpression
+	return ReferenceExpression(target.LexicalInfo, (target as ReferenceExpression).Name)

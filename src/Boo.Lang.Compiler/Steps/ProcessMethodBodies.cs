@@ -37,6 +37,7 @@ using System.Text;
 using Boo.Lang.Compiler.Ast;
 using Boo.Lang.Compiler.Ast.Visitors;
 using Boo.Lang.Compiler.Steps.Generators;
+using Boo.Lang.Compiler.Steps.MacroProcessing;
 using Boo.Lang.Compiler.TypeSystem;
 using Boo.Lang.Compiler.TypeSystem.Core;
 using Boo.Lang.Compiler.TypeSystem.Generics;
@@ -2833,6 +2834,103 @@ namespace Boo.Lang.Compiler.Steps
 		private void EnterForNamespace(ForStatement node)
 		{
 			EnterNamespace(new DeclarationsNamespace(CurrentNamespace, node.Declarations));
+		}
+
+		/// <summary>
+		/// A macro that deferred when the macros were expanded is asked again
+		/// here, where the code around it carries its types. Its expansion is
+		/// reified, which runs it through every step that has already been and
+		/// gone, and then visited like anything else.
+		/// </summary>
+		override public void OnMacroStatement(MacroStatement node)
+		{
+			var macro = ResolveDeferredMacro(node);
+			if (macro == null)
+			{
+				base.OnMacroStatement(node);
+				return;
+			}
+
+			Statement expansion;
+			var services = My<MacroExpansionServices>.Instance;
+			var previous = services.Bind(this);
+			try
+			{
+				macro.Initialize(Context);
+				expansion = macro.Expand(node);
+			}
+			catch (Exception error)
+			{
+				Error(CompilerErrorFactory.MacroExpansionError(node, error));
+				return;
+			}
+			finally
+			{
+				services.Bind(previous);
+			}
+
+			// Nothing comes after this, so a macro still holding out has run out
+			// of chances to say what it meant.
+			if (MacroExpansion.IsDeferred(expansion))
+			{
+				Error(CompilerErrorFactory.MacroExpansionError(node,
+					new Exception(string.Format(
+						"The '{0}' macro deferred again after the types were known, so it never expanded",
+						node.Name))));
+				return;
+			}
+
+			if (expansion == null)
+			{
+				node.ParentNode.Replace(node, null);
+				return;
+			}
+
+			expansion = ApplyMacroModifier(node, expansion);
+			node.ParentNode.Replace(node, expansion);
+			Visit(My<CodeReifier>.Instance.Reify(expansion));
+		}
+
+		private static Statement ApplyMacroModifier(MacroStatement node, Statement expansion)
+		{
+			return node.Modifier == null
+				? expansion
+				: NormalizeStatementModifiers.CreateModifiedStatement(node.Modifier, expansion);
+		}
+
+		/// <summary>
+		/// The macro behind a statement that survived MacroAndAttributeExpansion,
+		/// which means it deferred.
+		/// </summary>
+		private IAstMacro ResolveDeferredMacro(MacroStatement node)
+		{
+			var macroType = RuntimeTypeOfMacro(
+				MacroExpander.ResolveMacroTypeName(NameResolutionService, node.Name) as IType);
+
+			if (macroType == null || !typeof(IAstMacro).IsAssignableFrom(macroType))
+				return null;
+
+			return (IAstMacro)Activator.CreateInstance(macroType);
+		}
+
+		/// <summary>
+		/// The type to run a macro from. A macro written in the compilation at
+		/// hand had to be compiled to say it was deferring, so this only picks
+		/// up what the macro compiler already holds rather than compiling one
+		/// here, where a compilation would run inside this step.
+		/// </summary>
+		private static Type RuntimeTypeOfMacro(IType macroType)
+		{
+			if (macroType is ExternalType external)
+				return external.ActualType;
+
+			if (macroType is not InternalClass internalClass)
+				return null;
+
+			var macroCompiler = My<MacroCompiler>.Instance;
+			return macroCompiler.AlreadyCompiled(internalClass.TypeDefinition)
+				? macroCompiler.Compile(internalClass.TypeDefinition)
+				: null;
 		}
 
 		override public void OnUnpackStatement(UnpackStatement node)

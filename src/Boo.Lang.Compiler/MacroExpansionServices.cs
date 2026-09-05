@@ -1,5 +1,5 @@
-﻿#region license
-// Copyright (c) 2004, Rodrigo B. de Oliveira (rbo@acm.org)
+#region license
+// Copyright (c) 2026 the Boo contributors
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification,
@@ -27,33 +27,50 @@
 #endregion
 
 using Boo.Lang.Compiler.Ast;
+using Boo.Lang.Compiler.Steps;
 using Boo.Lang.Compiler.TypeSystem;
-using Boo.Lang.Environments;
 
 namespace Boo.Lang.Compiler;
 
-public abstract class AbstractAstMacro : AbstractCompilerComponent, IAstMacro
+/// <summary>
+/// Everything a macro is allowed to ask the compiler while it expands.
+/// </summary>
+/// <remarks>
+/// Deliberately narrow. Macros that reach into the steps themselves would pin
+/// the pipeline in place, and the point of deferring is that a macro says what
+/// it needs rather than where it wants to run.
+/// </remarks>
+public sealed class MacroExpansionServices : AbstractCompilerComponent
 {
-	protected AbstractAstMacro()
-	{
-	}
-
-	protected AbstractAstMacro(CompilerContext context) : base(context)
-	{
-	}
-
-	public abstract Statement Expand(MacroStatement macro);
-
-	private static MacroExpansionServices Services => My<MacroExpansionServices>.Instance;
+	private ProcessMethodBodies _binder;
 
 	/// <summary>
-	/// Whether the code this macro was handed carries its types yet. A macro
-	/// that needs them returns MacroExpansion.Deferred until this is true.
+	/// Whether the code around a macro carries its types yet. False while the
+	/// macros are first expanded, true once the method bodies are processed.
 	/// </summary>
-	protected static bool CanResolveTypes => Services.CanResolveTypes;
+	public bool CanResolveTypes => _binder != null;
 
 	/// <summary>
-	/// The type of an expression the macro was handed, once CanResolveTypes.
+	/// The type of an expression the macro was handed, or null when it has
+	/// none. Only answers once CanResolveTypes does.
 	/// </summary>
-	protected static IType TypeOf(Expression expression) => Services.TypeOf(expression);
+	public IType TypeOf(Expression expression)
+	{
+		if (expression == null || _binder == null)
+			return null;
+
+		_binder.Visit(expression);
+		return expression.ExpressionType;
+	}
+
+	/// <summary>
+	/// Hands back what was bound before, so that a macro expanding inside
+	/// another one leaves things as it found them.
+	/// </summary>
+	internal ProcessMethodBodies Bind(ProcessMethodBodies binder)
+	{
+		var previous = _binder;
+		_binder = binder;
+		return previous;
+	}
 }
