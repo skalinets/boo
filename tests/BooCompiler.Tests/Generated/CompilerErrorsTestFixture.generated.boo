@@ -906,6 +906,10 @@ class CompilerErrorsTestFixture(AbstractCompilerErrorsTestFixture):
 		RunCompilerTestCase("cannot-convert-enum-to-single.boo")
 
 	[Test]
+	def @deferred_macro_never_expands():
+		RunCompilerTestCase("deferred-macro-never-expands.boo")
+
+	[Test]
 	def @docstring_written_twice():
 		RunCompilerTestCase("docstring-written-twice.boo")
 

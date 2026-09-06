@@ -29,12 +29,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Boo.Lang.Compiler.Ast;
 using Boo.Lang.Compiler.TypeSystem;
 using Boo.Lang.Compiler.TypeSystem.Core;
 using Boo.Lang.Compiler.TypeSystem.Internal;
 using Boo.Lang.Compiler.TypeSystem.Reflection;
+using Boo.Lang.Compiler.TypeSystem.Services;
 using Boo.Lang.Compiler.Util;
 using Boo.Lang.Environments;
 
@@ -152,6 +152,10 @@ namespace Boo.Lang.Compiler.Steps.MacroProcessing
 		override public void OnMacroStatement(MacroStatement node)
 		{
 			EnsureCompilerAssemblyReference(Context);
+
+			// A nested macro loses its namespace once the macro holding it expands.
+			if (node[MacroExpansion.DeferredMacroType] != null)
+				return;
 
 			var macroType = ResolveMacroName(node) as IType;
 			if (null != macroType)
@@ -353,11 +357,18 @@ namespace Boo.Lang.Compiler.Steps.MacroProcessing
 				return;
 			}
 
-			++_expanded;
-			
 			try
 			{
 				var macroExpansion = ExpandMacro(actualType, node);
+
+				// Not counted as expanded, or the fixpoint loop would never settle.
+				if (MacroExpansion.IsDeferred(macroExpansion))
+				{
+					node[MacroExpansion.DeferredMacroType] = actualType;
+					return;
+				}
+
+				++_expanded;
 				var completeExpansion = ExpandMacroExpansion(node, macroExpansion);
 				ReplaceCurrentNode(completeExpansion);
 				if (completeExpansion != null && IsTopLevelExpansion())
@@ -433,9 +444,7 @@ namespace Boo.Lang.Compiler.Steps.MacroProcessing
 
 		private IEntity ResolveMacroName(MacroStatement node)
 		{
-			var macroTypeName = BuildMacroTypeName(node.Name);
-			var entity = ResolvePreferringInternalMacros(macroTypeName)
-				?? ResolvePreferringInternalMacros(node.Name);
+			var entity = ResolveMacroTypeName(NameResolutionService, node.Name);
 
 			if (entity is IType)
 				return entity;
@@ -449,9 +458,18 @@ namespace Boo.Lang.Compiler.Steps.MacroProcessing
 				?? entity; //return as-is
 		}
 
-		private IEntity ResolvePreferringInternalMacros(string macroTypeName)
+		/// <summary>
+		/// The type behind a macro name, by the same rules wherever one is looked up.
+		/// </summary>
+		internal static IEntity ResolveMacroTypeName(NameResolutionService nameResolution, string name)
 		{
-			IEntity resolved = NameResolutionService.ResolveQualifiedName(macroTypeName);
+			return ResolvePreferringInternalMacros(nameResolution, MacroTypeNameFor(name))
+				?? ResolvePreferringInternalMacros(nameResolution, name);
+		}
+
+		private static IEntity ResolvePreferringInternalMacros(NameResolutionService nameResolution, string macroTypeName)
+		{
+			IEntity resolved = nameResolution.ResolveQualifiedName(macroTypeName);
 			Ambiguous ambiguous = resolved as Ambiguous;
 			if (null != ambiguous && ambiguous.AllEntitiesAre(EntityType.Type))
 				return Entities.PreferInternalEntitiesOverExternalOnes(ambiguous);
@@ -532,23 +550,11 @@ namespace Boo.Lang.Compiler.Steps.MacroProcessing
 			return null;
 		}
 
-		private StringBuilder _buffer = new StringBuilder();
-
-		private string BuildMacroTypeName(string name)
+		private static string MacroTypeNameFor(string name)
 		{
-			_buffer.Length = 0;
-			if (!char.IsUpper(name[0]))
-			{
-				_buffer.Append(char.ToUpper(name[0]));
-				_buffer.Append(name.Substring(1));
-				_buffer.Append("Macro");
-			}
-			else
-			{
-				_buffer.Append(name);
-				_buffer.Append("Macro");
-			}
-			return _buffer.ToString();
+			return char.IsUpper(name[0])
+				? name + "Macro"
+				: char.ToUpper(name[0]) + name.Substring(1) + "Macro";
 		}
 	}
 }

@@ -50,6 +50,26 @@ class MacrosTestFixture(AbstractCompilerTestCase):
 		RunCompilerTestCase("debug-1.boo")
 
 	[Test]
+	def @deferred_macro_1():
+		RunCompilerTestCase("deferred-macro-1.boo")
+
+	[Test]
+	def @deferred_macro_2():
+		RunCompilerTestCase("deferred-macro-2.boo")
+
+	[Test]
+	def @deferred_macro_3():
+		RunCompilerTestCase("deferred-macro-3.boo")
+
+	[Test]
+	def @deferred_macro_4():
+		RunCompilerTestCase("deferred-macro-4.boo")
+
+	[Test]
+	def @deferred_macro_5():
+		RunCompilerTestCase("deferred-macro-5.boo")
+
+	[Test]
 	def @generator_macro_1():
 		RunCompilerTestCase("generator-macro-1.boo")
 
@@ -252,6 +272,14 @@ class MacrosTestFixture(AbstractCompilerTestCase):
 	[Test]
 	def @using_5():
 		RunCompilerTestCase("using-5.boo")
+
+	[Test]
+	def @using_6():
+		RunCompilerTestCase("using-6.boo")
+
+	[Test]
+	def @using_7():
+		RunCompilerTestCase("using-7.boo")
 
 	[Test]
 	def @var_1():

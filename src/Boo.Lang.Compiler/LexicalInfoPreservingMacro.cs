@@ -46,7 +46,10 @@ namespace Boo.Lang.Compiler
 		public override Statement Expand(MacroStatement macro)
 		{
 			Statement code = ExpandImpl(macro);
-			if (code != null) code.LexicalInfo = macro.LexicalInfo;
+
+			// The deferred statement is shared, so it takes no macro's position.
+			if (code != null && !MacroExpansion.IsDeferred(code))
+				code.LexicalInfo = macro.LexicalInfo;
 			return code;
 		}
 

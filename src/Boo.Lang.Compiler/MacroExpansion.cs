@@ -1,5 +1,5 @@
-﻿#region license
-// Copyright (c) 2004, Rodrigo B. de Oliveira (rbo@acm.org)
+#region license
+// Copyright (c) 2026 the Boo contributors
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification,
@@ -27,37 +27,34 @@
 #endregion
 
 using Boo.Lang.Compiler.Ast;
-using Boo.Lang.Compiler.TypeSystem;
-using Boo.Lang.Environments;
 
 namespace Boo.Lang.Compiler;
 
-public abstract class AbstractAstMacro : AbstractCompilerComponent, IAstMacro
+/// <summary>
+/// The answers a macro can give besides code.
+/// </summary>
+public static class MacroExpansion
 {
-	protected AbstractAstMacro()
+	/// <summary>
+	/// Returned by a macro that cannot expand until the types are known.
+	/// </summary>
+	public static readonly Statement Deferred = new DeferredStatement();
+
+	public static bool IsDeferred(Statement expansion) => ReferenceEquals(expansion, Deferred);
+
+	/// <summary>
+	/// The macro a deferred statement expands with, whose name may not resolve again.
+	/// </summary>
+	internal static readonly object DeferredMacroType = new object();
+
+	/// <summary>
+	/// The answer is which node this is, so a copy would read as an empty block.
+	/// </summary>
+	private sealed class DeferredStatement : Block
 	{
+		override public object Clone()
+		{
+			return this;
+		}
 	}
-
-	protected AbstractAstMacro(CompilerContext context) : base(context)
-	{
-	}
-
-	public abstract Statement Expand(MacroStatement macro);
-
-	private static MacroExpansionServices Services => My<MacroExpansionServices>.Instance;
-
-	/// <summary>
-	/// The answer to give when the macro cannot expand yet.
-	/// </summary>
-	protected Statement Deferred => MacroExpansion.Deferred;
-
-	/// <summary>
-	/// Whether the code this macro was handed carries its types yet.
-	/// </summary>
-	protected bool CanResolveTypes => Services.CanResolveTypes;
-
-	/// <summary>
-	/// The type of an expression the macro was handed.
-	/// </summary>
-	protected IType TypeOf(Expression expression) => Services.TypeOf(expression);
 }

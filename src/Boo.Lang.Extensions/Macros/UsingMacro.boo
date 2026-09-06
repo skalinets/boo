@@ -31,21 +31,68 @@ namespace Boo.Lang.Extensions
 import System
 import Boo.Lang.Compiler
 import Boo.Lang.Compiler.Ast
+import Boo.Lang.Compiler.TypeSystem
+import Boo.Lang.Environments
 
 macro using:
-	expansion = using.Body
+"""
+Disposes each value when the block is left. How it is disposed depends on the
+type, so this defers until the types are known.
+"""
+	return Deferred unless CanResolveTypes
+
+	# A later value may name an earlier one, so ask in the order written.
+	types = []
+	for expression as Expression in using.Arguments:
+		types.Add(TypeOf(expression))
+
+	expansion as Statement = using.Body
+	index = len(types)
 	for expression as Expression in reversed(using.Arguments):
+		index -= 1
 		temp = ReferenceExpression(Context.GetUniqueName("using", "disposable"))
-		assignment = [| $temp = $expression as System.IDisposable |].withLexicalInfoFrom(expression)
-		
+		disposal as Statement
+
+		if IsDisposedInPlace(types[index]):
+			# Disposing a copy would lose what Dispose writes.
+			named = NamedValue(expression)
+			if named is null:
+				assignment = [| $temp = $expression |].withLexicalInfoFrom(expression)
+				disposal = ExpressionStatement([| $temp.Dispose() |])
+			else:
+				assignment = expression
+				disposal = ExpressionStatement([| $named.Dispose() |])
+		else:
+			assignment = [| $temp = $expression as System.IDisposable |].withLexicalInfoFrom(expression)
+			disposal = [|
+				if $temp is not null:
+					$temp.Dispose()
+					$temp = null
+			|]
+
+		# A statement without a position sends the debugger to the top of the file.
+		disposal.LexicalInfo = expression.LexicalInfo
+
 		expansion = [|
 			$assignment
 			try:
 				$expansion
 			ensure:
-				if $temp is not null:
-					$temp.Dispose()
-					$temp = null
+				$disposal
 		|]
-		
+
 	return expansion
+
+/// A struct is disposed where it stands, since reaching it through IDisposable boxes it.
+internal def IsDisposedInPlace(type as IType) as bool:
+	return false if type is null or not type.IsValueType
+	return My[of TypeSystemServices].Instance.IDisposableType.IsAssignableFrom(type)
+
+/// The plain name a using argument binds to, or null when it binds none.
+internal def NamedValue(expression as Expression) as ReferenceExpression:
+	assignment = expression as BinaryExpression
+	return null if assignment is null or assignment.Operator != BinaryOperatorType.Assign
+
+	target = assignment.Left
+	return null if target.NodeType != NodeType.ReferenceExpression
+	return ReferenceExpression(target.LexicalInfo, (target as ReferenceExpression).Name)
