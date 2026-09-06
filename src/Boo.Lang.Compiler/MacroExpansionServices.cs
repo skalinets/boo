@@ -35,24 +35,17 @@ namespace Boo.Lang.Compiler;
 /// <summary>
 /// Everything a macro is allowed to ask the compiler while it expands.
 /// </summary>
-/// <remarks>
-/// Deliberately narrow. Macros that reach into the steps themselves would pin
-/// the pipeline in place, and the point of deferring is that a macro says what
-/// it needs rather than where it wants to run.
-/// </remarks>
 public sealed class MacroExpansionServices : AbstractCompilerComponent
 {
 	private ProcessMethodBodies _binder;
 
 	/// <summary>
-	/// Whether the code around a macro carries its types yet. False while the
-	/// macros are first expanded, true once the method bodies are processed.
+	/// Whether the code around a macro carries its types yet.
 	/// </summary>
 	public bool CanResolveTypes => _binder != null;
 
 	/// <summary>
-	/// The type of an expression the macro was handed, or null when it has
-	/// none. Only answers once CanResolveTypes does.
+	/// The type of an expression the macro was handed, or null when it has none.
 	/// </summary>
 	public IType TypeOf(Expression expression)
 	{
@@ -64,8 +57,7 @@ public sealed class MacroExpansionServices : AbstractCompilerComponent
 	}
 
 	/// <summary>
-	/// Hands back what was bound before, so that a macro expanding inside
-	/// another one leaves things as it found them.
+	/// Hands back what was bound before, for a macro expanding inside another.
 	/// </summary>
 	internal ProcessMethodBodies Bind(ProcessMethodBodies binder)
 	{

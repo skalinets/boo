@@ -66,6 +66,10 @@ class MacrosTestFixture(AbstractCompilerTestCase):
 		RunCompilerTestCase("deferred-macro-4.boo")
 
 	[Test]
+	def @deferred_macro_5():
+		RunCompilerTestCase("deferred-macro-5.boo")
+
+	[Test]
 	def @generator_macro_1():
 		RunCompilerTestCase("generator-macro-1.boo")
 

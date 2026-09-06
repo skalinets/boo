@@ -153,6 +153,10 @@ namespace Boo.Lang.Compiler.Steps.MacroProcessing
 		{
 			EnsureCompilerAssemblyReference(Context);
 
+			// A nested macro loses its namespace once the macro holding it expands.
+			if (node[MacroExpansion.DeferredMacroType] != null)
+				return;
+
 			var macroType = ResolveMacroName(node) as IType;
 			if (null != macroType)
 			{
@@ -357,11 +361,12 @@ namespace Boo.Lang.Compiler.Steps.MacroProcessing
 			{
 				var macroExpansion = ExpandMacro(actualType, node);
 
-				// The macro cannot answer yet, so it keeps its place and is
-				// asked again once the method bodies carry their types. Nothing
-				// expanded, or the fixpoint loop would never settle.
+				// Not counted as expanded, or the fixpoint loop would never settle.
 				if (MacroExpansion.IsDeferred(macroExpansion))
+				{
+					node[MacroExpansion.DeferredMacroType] = actualType;
 					return;
+				}
 
 				++_expanded;
 				var completeExpansion = ExpandMacroExpansion(node, macroExpansion);
@@ -454,9 +459,7 @@ namespace Boo.Lang.Compiler.Steps.MacroProcessing
 		}
 
 		/// <summary>
-		/// The type behind a macro name, by the same rules wherever a macro is
-		/// looked up. ProcessMethodBodies asks this again for a macro that
-		/// deferred.
+		/// The type behind a macro name, by the same rules wherever one is looked up.
 		/// </summary>
 		internal static IEntity ResolveMacroTypeName(NameResolutionService nameResolution, string name)
 		{

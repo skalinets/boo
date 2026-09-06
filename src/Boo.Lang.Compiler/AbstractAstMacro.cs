@@ -47,13 +47,17 @@ public abstract class AbstractAstMacro : AbstractCompilerComponent, IAstMacro
 	private static MacroExpansionServices Services => My<MacroExpansionServices>.Instance;
 
 	/// <summary>
-	/// Whether the code this macro was handed carries its types yet. A macro
-	/// that needs them returns MacroExpansion.Deferred until this is true.
+	/// The answer to give when the macro cannot expand yet.
 	/// </summary>
-	protected static bool CanResolveTypes => Services.CanResolveTypes;
+	protected Statement Deferred => MacroExpansion.Deferred;
 
 	/// <summary>
-	/// The type of an expression the macro was handed, once CanResolveTypes.
+	/// Whether the code this macro was handed carries its types yet.
 	/// </summary>
-	protected static IType TypeOf(Expression expression) => Services.TypeOf(expression);
+	protected bool CanResolveTypes => Services.CanResolveTypes;
+
+	/// <summary>
+	/// The type of an expression the macro was handed.
+	/// </summary>
+	protected IType TypeOf(Expression expression) => Services.TypeOf(expression);
 }

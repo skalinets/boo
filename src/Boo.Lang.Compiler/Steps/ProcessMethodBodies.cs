@@ -2837,17 +2837,17 @@ namespace Boo.Lang.Compiler.Steps
 		}
 
 		/// <summary>
-		/// A macro that deferred when the macros were expanded is asked again
-		/// here, where the code around it carries its types. Its expansion is
-		/// reified, which runs it through every step that has already been and
-		/// gone, and then visited like anything else.
+		/// A macro that deferred is asked again here, then reified and visited.
 		/// </summary>
 		override public void OnMacroStatement(MacroStatement node)
 		{
+			// Deferring recorded the macro, so not finding it means the phases disagree.
 			var macro = ResolveDeferredMacro(node);
 			if (macro == null)
 			{
-				base.OnMacroStatement(node);
+				Error(CompilerErrorFactory.InternalError(node,
+					string.Format("The '{0}' macro reached ProcessMethodBodies without deferring.", node.Name),
+					null));
 				return;
 			}
 
@@ -2869,8 +2869,7 @@ namespace Boo.Lang.Compiler.Steps
 				services.Bind(previous);
 			}
 
-			// Nothing comes after this, so a macro still holding out has run out
-			// of chances to say what it meant.
+			// Nothing comes after this phase.
 			if (MacroExpansion.IsDeferred(expansion))
 			{
 				Error(CompilerErrorFactory.MacroExpansionError(node,
@@ -2899,13 +2898,13 @@ namespace Boo.Lang.Compiler.Steps
 		}
 
 		/// <summary>
-		/// The macro behind a statement that survived MacroAndAttributeExpansion,
-		/// which means it deferred.
+		/// The macro behind a statement that deferred.
 		/// </summary>
 		private IAstMacro ResolveDeferredMacro(MacroStatement node)
 		{
-			var macroType = RuntimeTypeOfMacro(
-				MacroExpander.ResolveMacroTypeName(NameResolutionService, node.Name) as IType);
+			var macroType = node[MacroExpansion.DeferredMacroType] as Type
+				?? RuntimeTypeOfMacro(
+					MacroExpander.ResolveMacroTypeName(NameResolutionService, node.Name) as IType);
 
 			if (macroType == null || !typeof(IAstMacro).IsAssignableFrom(macroType))
 				return null;
@@ -2914,10 +2913,7 @@ namespace Boo.Lang.Compiler.Steps
 		}
 
 		/// <summary>
-		/// The type to run a macro from. A macro written in the compilation at
-		/// hand had to be compiled to say it was deferring, so this only picks
-		/// up what the macro compiler already holds rather than compiling one
-		/// here, where a compilation would run inside this step.
+		/// The type to run a macro from, never compiling one inside this step.
 		/// </summary>
 		private static Type RuntimeTypeOfMacro(IType macroType)
 		{

@@ -82,12 +82,12 @@ class RefStructsTestFixture(AbstractCompilerTestCase):
 		RunCompilerTestCase("span-write.boo")
 
 	[Test]
-	def @using_byreflike():
-		RunCompilerTestCase("using-byreflike.boo")
-
-	[Test]
 	def @using_byreflike_write():
 		RunCompilerTestCase("using-byreflike-write.boo")
+
+	[Test]
+	def @using_byreflike():
+		RunCompilerTestCase("using-byreflike.boo")
 
 	override protected def GetRelativeTestCasesPath() as string:
 		return "byreflike"

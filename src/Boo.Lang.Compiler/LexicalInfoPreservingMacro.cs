@@ -47,8 +47,7 @@ namespace Boo.Lang.Compiler
 		{
 			Statement code = ExpandImpl(macro);
 
-			// Deferring hands back the one shared statement that says so, which
-			// belongs to no macro in particular.
+			// The deferred statement is shared, so it takes no macro's position.
 			if (code != null && !MacroExpansion.IsDeferred(code))
 				code.LexicalInfo = macro.LexicalInfo;
 			return code;

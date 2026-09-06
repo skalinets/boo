@@ -36,20 +36,19 @@ namespace Boo.Lang.Compiler;
 public static class MacroExpansion
 {
 	/// <summary>
-	/// Returned by a macro that cannot answer yet, most often because it needs
-	/// to know a type and the macros run before anything has one. The statement
-	/// is left where it stands and the macro is asked again later, once the
-	/// method bodies are processed. A macro still deferring by then is an error,
-	/// since nothing further is coming.
+	/// Returned by a macro that cannot expand until the types are known.
 	/// </summary>
 	public static readonly Statement Deferred = new DeferredStatement();
 
 	public static bool IsDeferred(Statement expansion) => ReferenceEquals(expansion, Deferred);
 
 	/// <summary>
-	/// The answer is which node this is, so cloning hands back the same one.
-	/// An ordinary copy would read as a plain empty block, and the macro that
-	/// asked to wait would disappear instead.
+	/// The macro a deferred statement expands with, whose name may not resolve again.
+	/// </summary>
+	internal static readonly object DeferredMacroType = new object();
+
+	/// <summary>
+	/// The answer is which node this is, so a copy would read as an empty block.
 	/// </summary>
 	private sealed class DeferredStatement : Block
 	{
